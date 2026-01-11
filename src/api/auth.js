@@ -4,7 +4,7 @@ export function registerUser(userData) {
   return apiFetch("/auth/register", {
     method: "POST",
     body: JSON.stringify(userData),
-  });
+  }) ;
 }
 
 export function loginUser(userData) {
