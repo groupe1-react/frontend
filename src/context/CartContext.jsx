@@ -6,12 +6,15 @@ export function CartProvider({ children }) {
   const [cart, setCart] = useState([]);
 
   function addToCart(product) {
-    setCart((prevCart) => {
+    setCart((prevCart) => {      
       const existingProduct = prevCart.find(
         (item) => item.id === product.id
+      
+        
       );
 
       if (existingProduct) {
+        // le produit existe → on augmente la quantité
         return prevCart.map((item) =>
           item.id === product.id
             ? { ...item, quantity: item.quantity + 1 }
@@ -19,6 +22,7 @@ export function CartProvider({ children }) {
         );
       }
 
+      // nouveau produit → quantity = 1
       return [...prevCart, { ...product, quantity: 1 }];
     });
   }

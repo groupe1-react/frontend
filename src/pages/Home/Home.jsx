@@ -1,38 +1,75 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-
-
+import { getProducts } from "../../api/products";
 
 export default function Home() {
   const [category, setCategory] = useState("all");
-  const navigate=useNavigate();
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const navigate = useNavigate();
 
-  const products = [
-    { id: 1, name: "Galaxy S25", price: 250000, category: "smartphone", image: "/image/smartphone.jpeg" },
-    { id: 2, name: "MacBook Pro", price: 350000, category: "ordinateur", image: "/image/macbook.jpeg" },
-    { id: 3, name: "AirPods Pro", price: 90000, category: "accessoire", image: "/image/airpodspro.jpeg" },
+  // Images fixes selon l'ordre de l'API
+  const imageList = [
+    "/image/sony.jpeg",       // Sony WH-1000XM5
+    "/image/ipad.jpeg",       // iPad Air
+    "/image/nintendo.jpeg",   // Nintendo Switch OLED
+    "/image/logitech.jpeg",   // Logitech MX Master 3S
+    "/image/produit5.jpeg",   // Produit Modifié
+    "/image/iphone.jpeg",     // iPhone 15 Pro
+    "/image/watch.jpeg",      // Samsung Galaxy Watch 6
+    "/image/macbook.jpeg",    // MacBook Pro 14"
   ];
 
+  useEffect(() => {
+    async function fetchProducts() {
+      try {
+        const data = await getProducts();
+        if (data && Array.isArray(data.data)) {
+          const productsWithImages = data.data.map((product, index) => ({
+            ...product,
+            imageUrl: imageList[index] || "https://via.placeholder.com/300?text=Image+Indisponible",
+          }));
+          setProducts(productsWithImages);
+        } else {
+          setError("Aucun produit disponible");
+        }
+      } catch (err) {
+        setError(err.message || "Erreur lors de la récupération des produits");
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchProducts();
+  }, []);
+
+  // Filtrage par catégorie et limitation à 5 produits
   const filteredProducts =
-    category === "all"
+    (category === "all"
       ? products
-      : products.filter(p => p.category === category);
+      : products.filter(p => {
+          if (category === "smartphone") return p.category?.toLowerCase() === "smartphone";
+          if (category === "ordinateur") return p.category?.toLowerCase() === "ordinateur";
+          if (category === "accessoire") return p.category?.toLowerCase() === "accessoire";
+          return true;
+        })
+    ).slice(0, 4); // affcihe les produits populaires , maximum 3
 
   return (
-    <div className="bg-gray-50">
-
+    <div className="bg-gray-50 px-4 sm:px-6 lg:px-16 py-16 max-w-7xl mx-auto">
       {/* HERO */}
-      <section className="max-w-7xl mx-auto px-6 py-20 grid md:grid-cols-2 gap-12 items-center">
+      <section className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12 items-center mb-16">
         <div>
-          <h1 className="text-5xl font-bold leading-tight text-gray-900">
+          <h1 className="text-4xl sm:text-5xl font-bold leading-tight text-gray-900">
             Le meilleur du hardware <br /> commence ici
           </h1>
-
-          <p className="mt-6 text-lg text-gray-600">
+          <p className="mt-4 sm:mt-6 text-base sm:text-lg text-gray-600">
             Découvrez des produits technologiques premium sélectionnés pour la performance.
           </p>
-
-          <button className="mt-8 px-8 py-4 bg-black text-white rounded-xl text-lg hover:bg-gray-800 transition" onClick={()=>navigate("/products")}>
+          <button
+            className="mt-6 sm:mt-8 px-6 sm:px-8 py-3 sm:py-4 bg-black text-white rounded-xl text-base sm:text-lg hover:bg-gray-800 transition"
+            onClick={() => navigate("/products")}
+          >
             Voir les produits
           </button>
         </div>
@@ -41,37 +78,19 @@ export default function Home() {
           <img
             src="/image/hardware.jpeg"
             alt="Hardware premium"
-            className="rounded-2xl shadow-xl w-2xl "
+            className="rounded-2xl shadow-xl w-full sm:w-auto"
           />
         </div>
       </section>
 
-      {/* CATEGORIES */}
-      <section className="max-w-7xl mx-auto px-6 py-16">
-        <h2 className="text-3xl font-semibold mb-10 text-center">
-          Catégories
-        </h2>
-
-        <div className="grid md:grid-cols-3 gap-8">
-          {["Smartphones", "Ordinateurs", "Accessoires"].map(cat => (
-            <div
-              key={cat}
-              className="bg-white p-10 rounded-2xl shadow hover:shadow-lg transition text-center cursor-pointer"
-            >
-              <h3 className="text-xl font-semibold">{cat}</h3>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* PRODUITS */}
-      <section className="max-w-7xl mx-auto px-6 py-16">
-        <div className="flex justify-between items-center mb-10">
-          <h2 className="text-3xl font-semibold">Produits populaires</h2>
-
+      {/* PRODUITS POPULAIRES */}
+      <section>
+        <div className="flex flex-col sm:flex-row justify-between items-center mb-8">
+          <h2 className="text-2xl sm:text-3xl font-semibold mb-4 sm:mb-0">Produits populaires</h2>
           <select
-            className="border rounded-lg px-4 py-2"
+            className="border rounded-lg px-3 py-2"
             onChange={e => setCategory(e.target.value)}
+            value={category}
           >
             <option value="all">Tous</option>
             <option value="smartphone">Smartphones</option>
@@ -80,74 +99,35 @@ export default function Home() {
           </select>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-10">
-          {filteredProducts.map(product => (
-            <div
-              key={product.id}
-              className="bg-white rounded-2xl shadow hover:shadow-xl transition p-6"
-            >
-              <img
-                src={product.image}
-                alt={product.name}
-                className="h-48 w-full object-cover rounded-xl"
-              />
-
-              <h3 className="mt-6 text-xl font-semibold">
-                {product.name}
-              </h3>
-
-              <p className="mt-2 text-gray-600">
-                {product.price.toLocaleString()} FCFA
-              </p>
-
-              <button className="mt-6 w-full py-3 bg-black text-white rounded-xl hover:bg-gray-800 transition">
-                Ajouter au panier
-              </button>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* MARKETING */}
-      <section className="bg-white py-20">
-        <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-4 gap-10">
-          {[
-            "Livraison rapide",
-            "Produits certifiés",
-            "Paiement sécurisé",
-            "Support client 24/7",
-          ].map(item => (
-            <div key={item} className="text-center">
-              <h3 className="text-xl font-semibold">{item}</h3>
-              <p className="mt-4 text-gray-600">
-                Une expérience premium pensée pour vous.
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* AVIS */}
-      <section className="max-w-7xl mx-auto px-6 py-20">
-        <h2 className="text-3xl font-semibold text-center mb-12">
-          Ce que disent nos clients
-        </h2>
-
-        <div className="grid md:grid-cols-3 gap-10">
-          {["Excellent service", "Produits de qualité", "Livraison rapide"].map(
-            (avis, index) => (
+        {loading ? (
+          <p className="text-center text-gray-600">Chargement des produits...</p>
+        ) : error ? (
+          <p className="text-center text-red-500">{error}</p>
+        ) : filteredProducts.length === 0 ? (
+          <p className="text-center text-gray-600">Aucun produit disponible</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 lg:gap-8">
+            {filteredProducts.map(product => (
               <div
-                key={index}
-                className="bg-white p-8 rounded-2xl shadow"
+                key={product.id}
+                className="bg-white rounded-2xl shadow hover:shadow-xl transition p-4 sm:p-6 cursor-pointer flex flex-col"
+                onClick={() => navigate(`/product/${product.id}`)}
               >
-                <p className="text-gray-600">"{avis}"</p>
-                <p className="mt-4 font-semibold">Client satisfait</p>
+                <img
+                  src={product.imageUrl}
+                  alt={product.name}
+                  className="h-48 sm:h-52 md:h-48 lg:h-52 w-full object-cover rounded-xl"
+                />
+                <h3 className="mt-4 sm:mt-6 text-lg sm:text-xl font-semibold">{product.name}</h3>
+                <p className="mt-2 text-gray-600">{product.price?.toLocaleString()} FCFA</p>
+                <button className="mt-4 sm:mt-6 w-full py-3 bg-black text-white rounded-xl hover:bg-gray-800 transition">
+                  Ajouter au panier
+                </button>
               </div>
-            )
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </section>
-
     </div>
   );
 }

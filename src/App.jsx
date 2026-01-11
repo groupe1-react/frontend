@@ -4,20 +4,28 @@ import Navbar from "./components/Navbar/Navbar";
 import Auth from "./pages/Auth";
 import Products from "./pages/Products";
 import Cart from "./pages/Cart";
-
-
-
+import ProductDetails from "./pages/ProductsDetails";
+import Footer from "./components/Footer";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
   return (
     <BrowserRouter>
-      <Navbar/>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/auth" element={<Auth />} />
-        <Route path="/products" element={<Products />} />
-        <Route path="/cart" element={<Cart />} /> 
-      </Routes>
+      <div className="flex flex-col min-h-screen">
+        <Navbar />
+
+        <main className="flex-grow">
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/products" element={<Products />} />
+            <Route path="/cart" element={<ProtectedRoute><Cart/></ProtectedRoute>} />
+            <Route path="/product/:id" element={<ProductDetails />} />
+          </Routes>
+        </main>
+
+        <Footer />
+      </div>
     </BrowserRouter>
   );
 }
