@@ -43,7 +43,7 @@ export default function Home() {
     fetchProducts();
   }, []);
 
-  // Filtrage par catégorie et limitation à 5 produits
+  // Filtrage par catégorie et limitation à 4 produits
   const filteredProducts =
     (category === "all"
       ? products
@@ -53,7 +53,7 @@ export default function Home() {
           if (category === "accessoire") return p.category?.toLowerCase() === "accessoire";
           return true;
         })
-    ).slice(0, 4); // affcihe les produits populaires , maximum 3
+    ).slice(0, 4); // affcihe les produits populaires , maximum 4
 
   return (
     <div className="bg-gray-50 px-4 sm:px-6 lg:px-16 py-16 max-w-7xl mx-auto">
@@ -78,7 +78,7 @@ export default function Home() {
           <img
             src="/image/hardware.jpeg"
             alt="Hardware premium"
-            className="rounded-2xl shadow-xl w-full sm:w-auto"
+            className="rounded-2xl shadow-xl w-full sm:w-2xl "
           />
         </div>
       </section>

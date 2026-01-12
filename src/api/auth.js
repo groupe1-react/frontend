@@ -14,3 +14,24 @@ export function loginUser(userData) {
   });
 };
 
+export async function logoutUser() {
+  try {
+    const res = await apiFetch("/auth/logout", {
+      method: "POST",
+      credentials: "include"
+    });
+    return res;
+  } catch (err) {
+    console.error("Erreur lors du logout:", err);
+    return null; // ou un objet vide
+  }
+}
+
+
+
+
+
+
+
+
+

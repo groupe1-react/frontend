@@ -45,7 +45,7 @@ export default function Products() {
 
   return (
     <div className="bg-gray-50 px-4 sm:px-6 lg:px-16 py-16 min-h-screen">
-      <h2 className="text-3xl font-semibold mb-10 text-center">Tous les produits</h2>
+      <h2 className="text-3xl font-semibold mb-10 text-center">Découvrez les meilleurs produits tech selectionnés pour vous </h2>
 
       {loading ? (
         <p className="text-center text-gray-600">Chargement des produits...</p>

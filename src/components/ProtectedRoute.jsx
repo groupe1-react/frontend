@@ -6,7 +6,7 @@ function ProtectedRoute({ children }) {
   if (!token) {
     return (
       <Navigate
-        to="/login"
+        to="/auth"
         replace
         state={{ message: "Veuillez vous connecter pour accéder au panier." }}
       />

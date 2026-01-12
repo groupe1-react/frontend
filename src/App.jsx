@@ -18,9 +18,9 @@ function App() {
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/auth" element={<Auth />} />
-            <Route path="/products" element={<Products />} />
             <Route path="/cart" element={<ProtectedRoute><Cart/></ProtectedRoute>} />
-            <Route path="/product/:id" element={<ProductDetails />} />
+            <Route path="/products" element={<Products />} />
+            <Route path="/products/:id" element={<ProductDetails />} />
           </Routes>
         </main>
 
