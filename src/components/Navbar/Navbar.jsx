@@ -49,9 +49,7 @@ export default function Navbar() {
               className="relative text-gray-700 hover:text-indigo-600 transition"
             >
               🛒
-              <span className="absolute -top-2 -right-3 h-5 w-5 rounded-full bg-indigo-600 text-white text-xs flex items-center justify-center">
-                0
-              </span>
+          
             </Link>
           </div>
 
