@@ -1,22 +1,18 @@
 import { apiFetch } from "./apiFetch";
 
-const UPLOAD_BASE = "https://api.react.nos-apps.com/api";
-
+const UPLOAD_BASE = "api.react.nos-apps.com";
 
 export async function createProduct(payload) {
   return apiFetch("/admin/products", { method: "POST", body: payload });
 }
 
-
 export async function updateProduct(id, payload) {
   return apiFetch(`/admin/products/${id}`, { method: "PUT", body: payload });
 }
 
-
 export async function deleteProduct(id) {
   return apiFetch(`/admin/products/${id}`, { method: "DELETE" });
 }
-
 
 export async function uploadImage(file) {
   const url = `${UPLOAD_BASE}/upload/image`;

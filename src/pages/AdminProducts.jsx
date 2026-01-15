@@ -1,10 +1,16 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import { getProducts } from "../api/products";
-import { createProduct, updateProduct, deleteProduct, uploadImage } from "../api/admin";
+import { createProduct, updateProduct, deleteProduct } from "../api/admin"; // On n'importe plus uploadImage
+import noImage from "/no-image.png";
 
-const API_BASE = "https://api.react.nos-apps.com"; // base remote API (sans /groupe-1 pour upload endpoints)
-const UPLOAD_FILE_BASE = `${API_BASE}/api/upload/file`;
-const STATIC_PLACEHOLDER = "/image/no-image.png";
+const API_BASE = "https://api.react.nos-apps.com";
+
+function isAbsoluteUrl(s) {
+  return typeof s === "string" && (s.startsWith("http://") || s.startsWith("https://"));
+}
+function looksLikeUuidOrFilename(s) {
+  return typeof s === "string" && s.length > 0 && !s.includes("/") && !s.startsWith("http");
+}
 
 export default function AdminProducts() {
   const [products, setProducts] = useState([]);
@@ -15,21 +21,25 @@ export default function AdminProducts() {
   const [saving, setSaving] = useState(false);
   const [formErrors, setFormErrors] = useState(null);
 
-  const emptyForm = { id: null, name: "", price: "", description: "", imageFile: null, imagePreview: "", imageUrl: "" };
+  const emptyForm = { 
+    id: null, 
+    name: "", 
+    price: "", 
+    stock: 0, 
+    description: "", 
+    imageFile: null, 
+    imagePreview: "", 
+    imageUrl: "", 
+    groupe: "groupe-1"
+  };
+  
   const [form, setForm] = useState(emptyForm);
 
-  // store object URLs created from blobs so we can revoke them on unmount/update
-  const objectUrlsRef = useRef([]);
+  const ITEMS_PER_PAGE = 3;
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     fetchProducts();
-    return () => {
-      // cleanup created object URLs
-      objectUrlsRef.current.forEach((u) => {
-        try { URL.revokeObjectURL(u); } catch (e) {}
-      });
-      objectUrlsRef.current = [];
-    };
   }, []);
 
   async function fetchProducts() {
@@ -37,122 +47,32 @@ export default function AdminProducts() {
     setError("");
     try {
       const res = await getProducts();
-      const list = Array.isArray(res?.data) ? res.data : res?.data ?? res ?? [];
-      // attach placeholder for imageDisplay; will resolve real URLs asynchronously
-      const initialized = list.map((p) => ({ ...p, imageDisplay: STATIC_PLACEHOLDER }));
-      setProducts(initialized);
-      // resolve images after we set products
-      resolveImages(initialized);
+      let list = res?.data || (Array.isArray(res) ? res : []);
+      
+      // TRI CROISSANT : Les nouveaux produits s'ajoutent à la fin de la liste
+      list.sort((a, b) => (a.id || 0) - (b.id || 0));
+      
+      setProducts(list);
     } catch (err) {
       console.error(err);
-      setError(err.message || "Impossible de charger les produits");
+      setError("Impossible de charger les produits");
     } finally {
       setLoading(false);
-    }
+    }    
   }
 
-  // Try to resolve image for each product:
-  // - if product has an absolute URL -> use it
-  // - if product has a relative '/api/...' or a uuid/name -> try fetch to the remote API (UPLOAD_FILE_BASE/{candidate}) with token and create objectURL from blob
-  // - otherwise fallback to static placeholder
-  async function resolveImages(productList) {
-    // revoke previous object URLs
-    objectUrlsRef.current.forEach((u) => {
-      try { URL.revokeObjectURL(u); } catch (e) {}
-    });
-    objectUrlsRef.current = [];
-
-    const token = localStorage.getItem("token");
-
-    const resolved = await Promise.all(
-      productList.map(async (p) => {
-        const candidates = [
-          p.image_url,
-          p.imageUrl,
-          p.image,
-          p.file_uuid,
-          p.image_uuid,
-          p.file,
-        ].filter(Boolean);
-
-        // fallback static if no candidate
-        const staticFallback = p.image_url || p.imageUrl || STATIC_PLACEHOLDER;
-
-        if (candidates.length === 0) {
-          return { ...p, imageDisplay: staticFallback };
-        }
-
-        // take first candidate
-        let candidate = candidates[0];
-        if (typeof candidate === "object") {
-          candidate = candidate.url || candidate.path || candidate.name || "";
-        }
-        if (!candidate || typeof candidate !== "string") {
-          return { ...p, imageDisplay: staticFallback };
-        }
-
-        // If absolute URL, use it directly
-        if (candidate.startsWith("http://") || candidate.startsWith("https://")) {
-          return { ...p, imageDisplay: candidate };
-        }
-
-        // If candidate looks like an API path starting with /api, build URL to remote API (not to localhost dev server)
-        if (candidate.startsWith("/api")) {
-          const fullUrl = `${API_BASE}${candidate}`;
-          try {
-            const headers = token ? { Authorization: `Bearer ${token}` } : {};
-            const res = await fetch(fullUrl, { method: "GET", headers });
-            if (res.ok) {
-              const ct = res.headers.get("content-type") || "";
-              if (ct.startsWith("image/")) {
-                const blob = await res.blob();
-                const obj = URL.createObjectURL(blob);
-                objectUrlsRef.current.push(obj);
-                return { ...p, imageDisplay: obj };
-              } else if (ct.includes("application/json")) {
-                const json = await res.json().catch(() => null);
-                const urlFromJson = json?.url || json?.data?.url || json?.file?.url;
-                if (urlFromJson) return { ...p, imageDisplay: urlFromJson };
-              }
-            } else {
-              console.warn("Failed to fetch image api path", fullUrl, res.status);
-            }
-          } catch (e) {
-            console.warn("Error fetching image api path", e);
-          }
-          return { ...p, imageDisplay: staticFallback };
-        }
-
-        // Otherwise assume candidate is a uuid or filename -> try upload file endpoint on remote API
-        try {
-          const fileUrl = `${UPLOAD_FILE_BASE}/${candidate}`;
-          const headers = token ? { Authorization: `Bearer ${token}` } : {};
-          const res = await fetch(fileUrl, { method: "GET", headers });
-          if (res.ok) {
-            const ct = res.headers.get("content-type") || "";
-            if (ct.startsWith("image/")) {
-              const blob = await res.blob();
-              const obj = URL.createObjectURL(blob);
-              objectUrlsRef.current.push(obj);
-              return { ...p, imageDisplay: obj };
-            } else if (ct.includes("application/json")) {
-              const json = await res.json().catch(() => null);
-              const urlFromJson = json?.url || json?.data?.url || json?.file?.url;
-              if (urlFromJson) return { ...p, imageDisplay: urlFromJson };
-            }
-          } else {
-            console.warn("upload/file fetch returned", res.status, fileUrl);
-          }
-        } catch (e) {
-          console.warn("Error fetching upload/file for", candidate, e);
-        }
-
-        // final fallback
-        return { ...p, imageDisplay: staticFallback };
-      })
-    );
-
-    setProducts(resolved);
+  function computeImageSrc(p) {
+    if (!p) return noImage;
+    let val = p.image || p.image_url || p.imageUrl;
+    if (!val) return noImage;
+    if (typeof val === "string" && val.includes("source.unsplash.com")) {
+      return val.replace("source.unsplash.com", "images.unsplash.com");
+    }
+    if (isAbsoluteUrl(val)) return val;
+    if (looksLikeUuidOrFilename(val)) {
+      return `${API_BASE}/api/upload/file/${val}`;
+    }
+    return noImage;
   }
 
   function openCreate() {
@@ -166,10 +86,12 @@ export default function AdminProducts() {
       id: product.id,
       name: product.name || "",
       price: product.price ?? "",
+      stock: product.stock ?? 0,
       description: product.description || "",
       imageFile: null,
-      imagePreview: product.image_url || product.imageUrl || product.image || "",
-      imageUrl: product.image_url || product.imageUrl || "",
+      imagePreview: computeImageSrc(product),
+      imageUrl: product.image || "", 
+      groupe: product.groupe || "groupe-1",
     });
     setFormErrors(null);
     setFormOpen(true);
@@ -181,54 +103,36 @@ export default function AdminProducts() {
   }
 
   function handleFileChange(e) {
-    const file = e.target.files[0];
+    const file = e.target.files?.[0];
     if (!file) {
-      // revoke previous preview if any
-      if (form.imagePreview && typeof form.imagePreview === "string" && form.imagePreview.startsWith("blob:")) {
-        try { URL.revokeObjectURL(form.imagePreview); } catch {}
-      }
       setForm((f) => ({ ...f, imageFile: null, imagePreview: "" }));
       return;
     }
-    // revoke previous preview (avoid leak)
-    if (form.imagePreview && typeof form.imagePreview === "string" && form.imagePreview.startsWith("blob:")) {
-      try { URL.revokeObjectURL(form.imagePreview); } catch {}
-    }
-    const preview = URL.createObjectURL(file);
-    setForm((f) => ({ ...f, imageFile: file, imagePreview: preview }));
+    const reader = new FileReader();
+    reader.onload = () => setForm((f) => ({ ...f, imageFile: file, imagePreview: reader.result || "" }));
+    reader.readAsDataURL(file);
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setFormErrors(null);
 
-    if (!form.name.trim()) {
-      setFormErrors("Le nom du produit est requis.");
-      return;
-    }
-    if (!form.price || Number.isNaN(Number(form.price))) {
-      setFormErrors("Le prix est invalide.");
-      return;
-    }
+    if (!form.name.trim()) { setFormErrors("Le nom est requis."); return; }
+    if (!form.price) { setFormErrors("Le prix est requis."); return; }
 
     setSaving(true);
     try {
-      let payload = {
+      // Préparation du payload sans upload physique
+      const payload = {
         name: form.name.trim(),
         price: Number(form.price),
+        stock: Number(form.stock),
         description: form.description || "",
+        groupe: "groupe-1",
+        // Si on a une preview (data-url), on envoie l'URL existante ou un placeholder
+        // car le serveur n'accepte que du texte dans le champ image ici.
+        image: form.imageFile ? "hardware.jpeg" : (form.imageUrl || "hardware.jpeg")
       };
-
-      // If a file is selected, upload it first
-      if (form.imageFile) {
-        const up = await uploadImage(form.imageFile);
-        const uuid = up?.uuid || up?.data?.uuid || up?.id || up?.data?.id || up?.file?.uuid || up?.file?.id || null;
-        const url = up?.url || up?.data?.url || up?.file?.url || null;
-        if (uuid) payload.image_uuid = uuid;
-        else if (url) payload.image_url = url;
-      } else if (form.imageUrl) {
-        payload.image_url = form.imageUrl;
-      }
 
       if (form.id) {
         await updateProduct(form.id, payload);
@@ -238,118 +142,110 @@ export default function AdminProducts() {
 
       await fetchProducts();
       setFormOpen(false);
+      setForm(emptyForm);
     } catch (err) {
-      console.error("admin save error:", err);
-      const body = err?.body;
-      if (body?.errors) {
-        const messages = Object.values(body.errors).flat().join(", ");
-        setFormErrors(messages);
-      } else {
-        setFormErrors(err.message || "Erreur lors de l'enregistrement");
-      }
+      console.error("Erreur save:", err);
+      setFormErrors(err.body?.message || "Le serveur refuse l'enregistrement (Erreur 500).");
     } finally {
       setSaving(false);
     }
   }
 
   async function handleDelete(id) {
-    if (!confirm("Confirmer la suppression de ce produit ?")) return;
+    if (!confirm("Confirmer la suppression ?")) return;
     try {
       await deleteProduct(id);
       await fetchProducts();
     } catch (err) {
-      console.error(err);
-      alert("Impossible de supprimer le produit: " + (err?.message || "Erreur"));
+      alert("Impossible de supprimer");
     }
   }
 
+  const totalPages = Math.max(1, Math.ceil(products.length / ITEMS_PER_PAGE));
+  const displayed = products.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+
   return (
-    <div className="max-w-6xl mx-auto p-6">
+    <div className="max-w-6xl mx-auto p-6 font-sans">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold">Admin - Gestion des produits</h1>
-        <div>
-          <button onClick={openCreate} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">
-            Créer un produit
-          </button>
-        </div>
+        <button onClick={openCreate} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition">
+          Créer un produit
+        </button>
       </div>
 
-      {loading ? (
-        <p>Chargement...</p>
-      ) : error ? (
-        <p className="text-red-600">{error}</p>
-      ) : (
-        <div className="space-y-4">
-          {products.length === 0 && <p>Aucun produit.</p>}
+      {loading ? <p className="text-center py-10">Chargement des produits...</p> : (
+        <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {products.map((p) => (
-              <div key={p.id} className="bg-white rounded shadow p-4 flex flex-col">
-                <div className="h-40 bg-gray-100 rounded overflow-hidden flex items-center justify-center mb-3">
-                  <img
-                    src={p.imageDisplay || STATIC_PLACEHOLDER}
-                    alt={p.name}
-                    className="object-cover w-full h-full"
-                    onError={(e) => { e.target.onerror = null; e.target.src = STATIC_PLACEHOLDER; }}
-                  />
+            {displayed.map((p) => (
+              <div key={p.id} className="bg-white rounded-xl shadow-sm p-4 flex flex-col border border-gray-100">
+                <div className="h-40 bg-gray-50 rounded-lg overflow-hidden flex items-center justify-center mb-3">
+                  <img src={computeImageSrc(p)} alt={p.name} className="object-cover w-full h-full" />
                 </div>
-
                 <div className="flex-1">
-                  <h3 className="font-semibold">{p.name}</h3>
-                  <p className="text-sm text-gray-500">{p.price ? `${p.price.toLocaleString()} FCFA` : "Prix non renseigné"}</p>
+                  <h3 className="font-semibold text-gray-900">{p.name}</h3>
+                  <p className="text-sm text-indigo-600 font-bold">{p.price?.toLocaleString()} FCFA</p>
+                  <p className="text-[10px] text-gray-400 mt-2 italic">ID: {p.id} | Stock: {p.stock} | {p.groupe}</p>
                 </div>
-
                 <div className="mt-4 flex gap-2">
-                  <button onClick={() => openEdit(p)} className="px-3 py-1 bg-amber-500 text-white rounded">Modifier</button>
-                  <button onClick={() => handleDelete(p.id)} className="px-3 py-1 bg-red-600 text-white rounded">Supprimer</button>
+                  <button onClick={() => openEdit(p)} className="flex-1 px-3 py-2 bg-amber-500 text-white rounded-lg text-xs font-medium">Modifier</button>
+                  <button onClick={() => handleDelete(p.id)} className="flex-1 px-3 py-2 bg-red-600 text-white rounded-lg text-xs font-medium">Supprimer</button>
                 </div>
               </div>
             ))}
           </div>
-        </div>
+          
+          <div className="mt-8 flex justify-center items-center gap-3">
+            <button disabled={page === 1} onClick={() => setPage(p => p - 1)} className="px-4 py-2 border rounded-lg disabled:opacity-30">Préc.</button>
+            <div className="text-sm font-medium">Page {page} sur {totalPages}</div>
+            <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)} className="px-4 py-2 border rounded-lg disabled:opacity-30">Suiv.</button>
+          </div>
+        </>
       )}
 
-      {/* Form modal / panel */}
       {formOpen && (
-        <div className="fixed inset-0 bg-black/40 flex items-start justify-center p-6 z-50">
-          <div className="bg-white rounded-lg max-w-2xl w-full shadow-lg p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-medium">{form.id ? "Modifier le produit" : "Créer un produit"}</h2>
-              <button onClick={() => setFormOpen(false)} className="text-gray-500 hover:text-gray-700">Fermer</button>
-            </div>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl p-6 overflow-y-auto max-h-[90vh]">
+            <h2 className="text-xl font-bold mb-4 text-gray-800">{form.id ? "Modifier le produit" : "Nouveau produit"}</h2>
+            
+            {formErrors && (
+              <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-xs font-medium">
+                {formErrors}
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              {formErrors && <div className="text-red-600 text-sm">{formErrors}</div>}
-
               <div>
-                <label className="block text-sm text-gray-600 mb-1">Nom</label>
-                <input name="name" value={form.name} onChange={handleChange} className="w-full border rounded px-3 py-2" />
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nom du produit</label>
+                <input type="text" name="name" value={form.name} onChange={handleChange} className="w-full border-gray-200 border p-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" required />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Prix (FCFA)</label>
+                  <input type="number" name="price" value={form.price} onChange={handleChange} className="w-full border-gray-200 border p-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" required />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Stock</label>
+                  <input type="number" name="stock" value={form.stock} onChange={handleChange} className="w-full border-gray-200 border p-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" required />
+                </div>
               </div>
 
               <div>
-                <label className="block text-sm text-gray-600 mb-1">Prix (FCFA)</label>
-                <input name="price" value={form.price} onChange={handleChange} type="number" className="w-full border rounded px-3 py-2" />
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Description</label>
+                <textarea name="description" value={form.description} onChange={handleChange} className="w-full border-gray-200 border p-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" rows="3" />
               </div>
 
               <div>
-                <label className="block text-sm text-gray-600 mb-1">Description</label>
-                <textarea name="description" value={form.description} onChange={handleChange} rows={3} className="w-full border rounded px-3 py-2" />
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Image</label>
+                <input type="file" accept="image/*" onChange={handleFileChange} className="w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+                {form.imagePreview && <img src={form.imagePreview} className="mt-3 h-28 w-full object-cover rounded-xl border border-gray-100" alt="Aperçu" />}
               </div>
 
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">Image (upload)</label>
-                <input type="file" accept="image/*" onChange={handleFileChange} />
-                {form.imagePreview && (
-                  <img src={form.imagePreview} alt="preview" className="mt-2 w-40 h-40 object-cover rounded" />
-                )}
-                <div className="mt-2 text-sm text-gray-500">Ou coller une URL publique :</div>
-                <input name="imageUrl" value={form.imageUrl} onChange={handleChange} placeholder="https://..." className="w-full border rounded px-3 py-2 mt-1" />
-              </div>
-
-              <div className="flex items-center gap-3">
-                <button type="submit" disabled={saving} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">
-                  {saving ? "Enregistrement..." : form.id ? "Mettre à jour" : "Créer"}
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-50">
+                <button type="button" onClick={() => setFormOpen(false)} className="px-4 py-2 text-sm font-medium text-gray-400 hover:text-gray-600">Annuler</button>
+                <button type="submit" disabled={saving} className="px-6 py-2 bg-black text-white rounded-xl text-sm font-semibold hover:bg-gray-800 disabled:opacity-50 transition">
+                  {saving ? "Enregistrement..." : "Enregistrer"}
                 </button>
-                <button type="button" onClick={() => setFormOpen(false)} className="px-4 py-2 border rounded">Annuler</button>
               </div>
             </form>
           </div>
