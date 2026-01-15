@@ -1,63 +1,74 @@
-import { createContext, useContext, useEffect, useState } from "react";
-import { loginUser, logoutUser } from "../api/auth";
+import React, { createContext, useState, useEffect } from "react";
 
-const AuthContext = createContext(null);
+export const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
   const [token, setToken] = useState(() => localStorage.getItem("token"));
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("user"));
+    } catch {
+      return null;
+    }
+  });
 
-  // Vérifier l’état d’auth au chargement
   useEffect(() => {
     if (token) {
-      setUser({ token }); // simple, suffisant pour ton projet
+      localStorage.setItem("token", token);
+    } else {
+      localStorage.removeItem("token");
     }
-    setLoading(false);
   }, [token]);
 
-  // LOGIN
+  useEffect(() => {
+    if (user) localStorage.setItem("user", JSON.stringify(user));
+    else localStorage.removeItem("user");
+  }, [user]);
+
   async function login(credentials) {
-    const result = await loginUser(credentials);
-    localStorage.setItem("token", result.token);
-    setToken(result.token);
-    setUser({ token: result.token });
+    // credentials = { email, password } ou selon ton API
+    const res = await fetch("https://api.react.nos-apps.com/api/groupe-1/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(credentials),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data?.message || `Login failed (${res.status})`);
+    }
+    // attendre que la réponse contienne token (ex: { token, user })
+    setToken(data.token);
+    setUser(data.user ?? null);
+    return data;
   }
 
-  // LOGOUT
-  async function logout() {
-    try {
-      await logoutUser();
-    } catch (e) {
-      // même si l’API échoue, on force le logout côté frontend
-    } finally {
-      localStorage.removeItem("token");
-      setToken(null);
-      setUser(null);
+  async function register(payload) {
+    const res = await fetch("https://api.react.nos-apps.com/api/groupe-1/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data?.message || `Register failed (${res.status})`);
     }
+    // optionnel : auto-login si la réponse contient token
+    if (data.token) {
+      setToken(data.token);
+      setUser(data.user ?? null);
+    }
+    return data;
+  }
+
+  function logout() {
+    setToken(null);
+    setUser(null);
+    // optionnel: appeler endpoint /logout
   }
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        token,
-        isAuthenticated: !!token,
-        login,
-        logout,
-        loading,
-      }}
-    >
+    <AuthContext.Provider value={{ token, user, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );
-}
-
-// Hook custom
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth doit être utilisé dans AuthProvider");
-  }
-  return context;
 }

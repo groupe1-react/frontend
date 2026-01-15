@@ -20,33 +20,64 @@ export default function Auth() {
   }
 
   async function handleSubmit(e) {
-    e.preventDefault();
-    setError("");
-    setSuccess("");
+  e.preventDefault();
+  setError("");
+  setSuccess("");
 
-    try {
-      if (mode === "login") {
-        const result = await loginUser({
-          email: formData.email,
-          password: formData.password,
-        });
-        localStorage.setItem("token", result.token);
-        setSuccess("Connexion réussie");
-        navigate("/");
-      } else {
-        await registerUser(formData);
-        setSuccess("Compte créé avec succès. Connectez-vous.");
-        setMode("login");
+  try {
+    if (mode === "login") {
+      const result = await loginUser({
+        email: formData.email,
+        password: formData.password,
+      });
+
+      // Debug : log complet de la réponse du serveur pour vérifier la structure
+      console.log("login result:", result);
+
+      const token = result?.token;
+      if (!token) {
+        throw new Error("Connexion échouée : token non reçu.");
       }
-    } catch (err) {
-      setError(err.message);
+
+      // Stocker le token strictement (éviter d'écrire 'undefined')
+      localStorage.setItem("token", token);
+      setSuccess("Connexion réussie");
+      setTimeout(() => navigate("/"), 500);
+    } else {
+      const result = await registerUser({
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        password_confirmation: formData.password_confirmation,
+      });
+
+      console.log("register result:", result);
+
+      if (result?.token) {
+        localStorage.setItem("token", result.token);
+        setSuccess("Compte créé et connecté avec succès.");
+        setTimeout(() => navigate("/"), 500);
+        return;
+      }
+
+      setSuccess("Compte créé avec succès. Connectez-vous.");
+      setMode("login");
+    }
+  } catch (err) {
+    console.error("Auth error:", err, err?.body);
+    // Si le backend a renvoyé des erreurs de validation, affiche-les
+    const backendErrors = err?.body?.errors;
+    if (backendErrors) {
+      setError(Object.values(backendErrors).flat().join(", "));
+    } else {
+      setError(err.message || "Erreur inconnue lors de l'authentification");
     }
   }
+}
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8">
-        
         {/* Tabs */}
         <div className="flex mb-6 border-b">
           <button

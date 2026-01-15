@@ -7,6 +7,7 @@ import Cart from "./pages/Cart";
 import ProductDetails from "./pages/ProductsDetails";
 import Footer from "./components/Footer";
 import ProtectedRoute from "./components/ProtectedRoute";
+import AdminProducts from "./pages/AdminProducts";
 
 function App() {
   return (
@@ -21,6 +22,9 @@ function App() {
             <Route path="/cart" element={<ProtectedRoute><Cart/></ProtectedRoute>} />
             <Route path="/products" element={<Products />} />
             <Route path="/product/:id" element={<ProductDetails />} />
+            <Route path="/admin/products" element={<AdminProducts />} />
+
+
           </Routes>
         </main>
 

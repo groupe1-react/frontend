@@ -13,9 +13,8 @@ export function CartProvider({ children }) {
     async function fetchCart() {
       setLoading(true);
       try {
-        const data = await apiFetch("/groupe-1/cart", {
+        const data = await apiFetch("/cart", {
           method: "GET",
-          credentials: "include",
         });
         if (data && Array.isArray(data.data)) {
           setCart(data.data);
@@ -34,14 +33,17 @@ export function CartProvider({ children }) {
   }, []);
 
   // Ajouter un produit au panier
- async function add(productId, quantity = 1) {
+ async function add(product_id, quantity = 1) {
   setLoading(true);
   try {
+    const token=localStorage.getItem("token");
     // POST pour ajouter le produit
-    const result = await apiFetch("/groupe-1/cart", {
+    const result = await apiFetch("/cart", {
       method: "POST",
-      credentials: "include", // très important si le panier est lié au cookie/session
-      body: JSON.stringify({ product_id: productId, quantity }),
+      headers:{
+        "Autorization":`Bearer ${token}`
+      },
+      body: JSON.stringify({ product_id, quantity }),
     });
 
     // Vérifier si l'API renvoie directement le panier
@@ -49,7 +51,6 @@ export function CartProvider({ children }) {
 
     setCart(updatedCart);
   } catch (err) {
-    console.error(err);
     setError("Impossible d'ajouter le produit au panier");
   } finally {
     setLoading(false);
@@ -62,19 +63,16 @@ export function CartProvider({ children }) {
     if (quantity < 1) return;
     setLoading(true);
     try {
-      await apiFetch(`/groupe-1/cart/${itemId}`, {
+      await apiFetch(`/cart/${itemId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({ quantity }),
       });
-      const updated = await apiFetch("/groupe-1/cart", {
+      const updated = await apiFetch("/cart", {
         method: "GET",
-        credentials: "include",
       });
       setCart(updated.data || []);
     } catch (err) {
-      console.error(err);
       setError("Impossible de mettre à jour la quantité");
     } finally {
       setLoading(false);
@@ -85,13 +83,11 @@ export function CartProvider({ children }) {
   async function remove(itemId) {
     setLoading(true);
     try {
-      await apiFetch(`/groupe-1/cart/${itemId}`, {
+      await apiFetch(`/cart/${itemId}`, {
         method: "DELETE",
-        credentials: "include",
       });
       setCart(prev => prev.filter(item => item.id !== itemId));
     } catch (err) {
-      console.error(err);
       setError("Impossible de supprimer le produit");
     } finally {
       setLoading(false);

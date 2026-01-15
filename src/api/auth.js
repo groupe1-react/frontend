@@ -1,37 +1,56 @@
 import { apiFetch } from "./apiFetch";
 
-export function registerUser(userData) {
-  return apiFetch("/auth/register", {
+/**
+ * Normalise la réponse de login pour toujours retourner { token, data } ou lever une erreur.
+ */
+export async function loginUser(credentials) {
+  const res = await apiFetch("/auth/login", {
     method: "POST",
-    body: JSON.stringify(userData),
-  }) ;
+    body: credentials,
+  });
+
+  // Extraire le token depuis plusieurs formats possibles
+  const token =
+    res?.token ||
+    res?.access_token ||
+    res?.data?.token ||
+    res?.data?.access_token ||
+    res?.meta?.token ||
+    null;
+
+  if (!token) {
+    const message = res?.message || "Authentification échouée : aucun token reçu du serveur.";
+    const err = new Error(message);
+    err.body = res;
+    throw err;
+  }
+
+  return { token, data: res };
 }
 
-export function loginUser(userData) {
-  return apiFetch("/auth/login", {
+/**
+ * Register : retourne { token?, data }
+ */
+export async function registerUser(payload) {
+  const res = await apiFetch("/auth/register", {
     method: "POST",
-    body: JSON.stringify(userData),
+    body: payload,
   });
-};
+
+  const token =
+    res?.token ||
+    res?.access_token ||
+    res?.data?.token ||
+    res?.data?.access_token ||
+    null;
+
+  return { token, data: res };
+}
 
 export async function logoutUser() {
   try {
-    const res = await apiFetch("/auth/logout", {
-      method: "POST",
-      credentials: "include"
-    });
-    return res;
+    return await apiFetch("/auth/logout", { method: "POST" });
   } catch (err) {
-    console.error("Erreur lors du logout:", err);
-    return null; // ou un objet vide
+    return null;
   }
 }
-
-
-
-
-
-
-
-
-
