@@ -1,4 +1,4 @@
-# Groupe 1 – Projet React(Site E-commerce)
+# Groupe 1 – Projet React site e-commerce(TechStore)
 
 Projet frontend développé en React dans le cadre d’un travail de groupe.
 
