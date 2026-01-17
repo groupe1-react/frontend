@@ -129,8 +129,6 @@ export default function AdminProducts() {
         stock: Number(form.stock),
         description: form.description || "",
         groupe: "groupe-1",
-        // Si on a une preview (data-url), on envoie l'URL existante ou un placeholder
-        // car le serveur n'accepte que du texte dans le champ image ici.
         image: form.imageFile ? "hardware.jpeg" : (form.imageUrl || "hardware.jpeg")
       };
 

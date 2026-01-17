@@ -50,8 +50,9 @@ export default function Home() {
     fetchProducts();
   }, []);
 
-  // --- LOGIQUE DE RECHERCHE ET FILTRAGE ---
+  //LOGIQUE DE RECHERCHE ET FILTRAGE 
   const filteredProducts = products.filter((product) => {
+
     // 1. Filtrage par texte (Nom ou Description)
     const matchesSearch = 
       product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -78,7 +79,7 @@ export default function Home() {
               Le meilleur du hardware <br /> commence ici
             </h1>
             <p className="mt-6 text-lg text-gray-600">
-              Découvrez des produits technologiques premium sélectionnés pour la performance.
+              Découvrez des produits technologiques premium sélectionnés pour la performance et la qualité.
             </p>
             <button
               onClick={() => navigate("/products")}
@@ -99,7 +100,6 @@ export default function Home() {
           </h2>
           <p className="text-sm text-gray-500">{filteredProducts.length} produits trouvés</p>
         </div>
-
         <div className="flex items-center gap-3">
           <label className="text-sm font-medium text-gray-700">Budget Max :</label>
           <input

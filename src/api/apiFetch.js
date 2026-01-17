@@ -3,10 +3,8 @@ const BASE_URL = "https://api.react.nos-apps.com/api/groupe-1";
 export async function apiFetch(endpoint, options = {}) {
   const url = endpoint.startsWith("http") ? endpoint : `${BASE_URL}${endpoint}`;
 
-  // Headers sûrs
   const headers = new Headers(options.headers || {});
 
-  // Si body est un objet (pas FormData) : stringify + Content-Type JSON
   if (options.body && typeof options.body !== "string" && !(options.body instanceof FormData)) {
     if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
     const ct = headers.get("Content-Type") || "";
@@ -15,7 +13,7 @@ export async function apiFetch(endpoint, options = {}) {
     }
   }
 
-  // Lire le token depuis localStorage (clé "token" par convention)
+  // Lire le token depuis localStorage 
   const token = localStorage.getItem("token");
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
@@ -23,21 +21,21 @@ export async function apiFetch(endpoint, options = {}) {
     headers.delete("Authorization");
   }
 
-  // Eviter d'envoyer Authorization: Bearer undefined
+  // Ne pas envoyer Authorization: Bearer undefined
   const auth = headers.get("Authorization");
   if (!auth || auth.includes("undefined")) {
     headers.delete("Authorization");
   }
 
   const fetchOpts = {
-    credentials: options.credentials ?? "omit", // 'omit' si on utilise token bearer ; use 'include' si cookie/session
+    credentials: options.credentials ?? "omit",
     ...options,
     headers,
   };
 
   const response = await fetch(url, fetchOpts);
 
-  // Parser la réponse proprement
+  // Parser la réponse 
   let responseData = null;
   const contentType = response.headers.get("content-type") || "";
   if (contentType.includes("application/json")) {

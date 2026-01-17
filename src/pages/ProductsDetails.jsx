@@ -26,7 +26,6 @@ export default function ProductDetails() {
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
 
-  // imageUrl résolue (peut être URL publique ou objectURL créé depuis un blob)
   const [imageUrl, setImageUrl] = useState(null);
   const objectUrlRef = useRef(null);
 
@@ -39,8 +38,6 @@ export default function ProductDetails() {
         }
 
         const data = await getProductById(id);
-        // normaliser selon la forme renvoyée par getProductById
-        // certains helper renvoient { data: {...} } ou l'objet directement
         const productData = data?.data ?? data;
         if (!productData || Object.keys(productData).length === 0) {
           setError("Produit introuvable");
@@ -56,7 +53,6 @@ export default function ProductDetails() {
     }
 
     fetchProduct();
-    // cleanup prev objectURL si existant
     return () => {
       if (objectUrlRef.current) {
         try { URL.revokeObjectURL(objectUrlRef.current); } catch {}
@@ -75,7 +71,6 @@ export default function ProductDetails() {
     let mounted = true;
 
     async function resolveImage() {
-      // cleanup ancien objectURL
       if (objectUrlRef.current) {
         try { URL.revokeObjectURL(objectUrlRef.current); } catch {}
         objectUrlRef.current = null;
@@ -102,18 +97,15 @@ export default function ProductDetails() {
       // prendre le premier candidat valable
       let candidate = candidates[0];
 
-      // Si candidate est un objet (ex: {url: "..."}), récupérer url
       if (typeof candidate === "object") {
         candidate = candidate.url || candidate.path || candidate.name || "";
       }
 
-      // Si c'est déjà une URL complète, l'utiliser directement
       if (typeof candidate === "string" && (candidate.startsWith("http://") || candidate.startsWith("https://"))) {
         if (mounted) setImageUrl(candidate);
         return;
       }
 
-      // Si candidate ressemble à un chemin relatif commençant par /api/
       if (typeof candidate === "string" && candidate.startsWith("/api")) {
         const fullUrl = candidate.startsWith("http") ? candidate : `${window.location.origin}${candidate}`;
         try {
@@ -149,8 +141,6 @@ export default function ProductDetails() {
         return;
       }
 
-      // Si candidate ressemble à un uuid ou un nom de fichier, construire l'URL d'upload fournie par le prof
-      // ex: https://api.react.nos-apps.com/api/upload/file/{uuid}
       if (typeof candidate === "string") {
         const fileUrl = `${UPLOAD_FILE_BASE}/${candidate}`;
         try {

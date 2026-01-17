@@ -7,101 +7,256 @@ export function CartProvider({ children }) {
   const [cart, setCart] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [token, setToken] = useState(localStorage.getItem("token"));
 
-  // Charger le panier depuis l'API
+  // Écouter les changements de token
   useEffect(() => {
-    async function fetchCart() {
-      setLoading(true);
-      try {
-        const data = await apiFetch("/cart", {
-          method: "GET",
-        });
-        if (data && Array.isArray(data.data)) {
-          setCart(data.data);
-        } else {
-          setCart([]);
-        }
-      } catch (err) {
-        setError("Impossible de récupérer le panier");
-        console.error(err);
-      } finally {
-        setLoading(false);
+    const handleStorageChange = () => {
+      const newToken = localStorage.getItem("token");
+      setToken(newToken);
+      if (newToken) {
+        fetchCart(); // Recharger le panier si token change
+      } else {
+        setCart([]); // Vider le panier si déconnexion
       }
-    }
+    };
 
-    fetchCart();
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
-  // Ajouter un produit au panier
- async function add(product_id, quantity = 1) {
-  setLoading(true);
-  try {
-    const token=localStorage.getItem("token");
-    // POST pour ajouter le produit
-    const result = await apiFetch("/cart", {
-      method: "POST",
-      headers:{
-        "Autorization":`Bearer ${token}`
-      },
-      body: JSON.stringify({ product_id, quantity }),
+  // Fonction pour ajouter automatiquement le token aux requêtes
+  const makeAuthedRequest = async (url, options = {}) => {
+    const headers = {
+      "Content-Type": "application/json",
+      ...options.headers,
+    };
+
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    console.log("🔐 Requête avec token?", !!token);
+    
+    return await apiFetch(url, {
+      ...options,
+      headers,
     });
+  };
 
-    // Vérifier si l'API renvoie directement le panier
-    const updatedCart = result?.data || result || [];
+  // Charger le panier
+  const fetchCart = async () => {
+    if (!token) {
+      console.log("⚠️ Pas de token, panier vide");
+      setCart([]);
+      setLoading(false);
+      return;
+    }
 
-    setCart(updatedCart);
-  } catch (err) {
-    setError("Impossible d'ajouter le produit au panier");
-  } finally {
-    setLoading(false);
-  }
-}
-
-
-  // Mettre à jour la quantité d'un produit
-  async function update(itemId, quantity) {
-    if (quantity < 1) return;
+    console.log("🔄 Chargement panier avec token...");
     setLoading(true);
     try {
-      await apiFetch(`/cart/${itemId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ quantity }),
-      });
-      const updated = await apiFetch("/cart", {
+      const data = await makeAuthedRequest("/cart", {
         method: "GET",
       });
-      setCart(updated.data || []);
+
+      console.log("📦 Réponse API GET /cart:", data);
+
+      // Essayer différentes structures de réponse
+      let cartItems = [];
+      
+      if (data && data.data && Array.isArray(data.data)) {
+        cartItems = data.data;
+      } else if (data && Array.isArray(data)) {
+        cartItems = data;
+      } else if (data && data.items && Array.isArray(data.items)) {
+        cartItems = data.items;
+      } else if (data && data.cart && Array.isArray(data.cart)) {
+        cartItems = data.cart;
+      } else if (data && data.products && Array.isArray(data.products)) {
+        cartItems = data.products;
+      }
+
+      console.log("🛒 Items extraits:", cartItems.length);
+      setCart(cartItems);
+      setError("");
+
     } catch (err) {
-      setError("Impossible de mettre à jour la quantité");
+      console.error("❌ Erreur fetchCart:", err);
+      if (err.message.includes("401") || err.message.includes("403")) {
+        setError("Session expirée. Veuillez vous reconnecter.");
+        // Optionnel: déconnecter l'utilisateur
+        localStorage.removeItem("token");
+        setToken(null);
+      } else {
+        setError("Impossible de récupérer le panier");
+      }
     } finally {
       setLoading(false);
     }
-  }
+  };
 
-  // Supprimer un produit du panier
-  async function remove(itemId) {
-    setLoading(true);
+  // Charger le panier au démarrage et quand le token change
+  useEffect(() => {
+    if (token) {
+      fetchCart();
+    } else {
+      setLoading(false);
+    }
+  }, [token]);
+
+  // Ajouter un produit
+  const add = async (product_id, quantity = 1) => {
+    if (!token) {
+      setError("Veuillez vous connecter pour ajouter au panier");
+      return false;
+    }
+
+    console.log(`➕ Ajout produit ${product_id}, quantité ${quantity}`);
+    
     try {
-      await apiFetch(`/cart/${itemId}`, {
+      // POST pour ajouter
+      const result = await makeAuthedRequest("/cart", {
+        method: "POST",
+        body: JSON.stringify({ product_id, quantity }),
+      });
+
+      console.log("✅ Réponse POST:", result);
+
+      // Stratégie: Option 1 - Recharger tout le panier
+      await fetchCart();
+
+      // Stratégie: Option 2 - Mettre à jour localement (plus rapide)
+      // Si l'API retourne l'item ajouté
+      if (result && result.data) {
+        const newItem = result.data;
+        setCart(prev => {
+          // Vérifier si le produit existe déjà
+          const existingIndex = prev.findIndex(item => 
+            item.product_id === product_id || item.product?.id === product_id
+          );
+          
+          if (existingIndex >= 0) {
+            // Mettre à jour la quantité
+            const updated = [...prev];
+            updated[existingIndex] = {
+              ...updated[existingIndex],
+              quantity: updated[existingIndex].quantity + quantity
+            };
+            return updated;
+          } else {
+            // Ajouter nouvel item
+            return [...prev, newItem];
+          }
+        });
+      }
+
+      return true;
+    } catch (err) {
+      console.error("❌ Erreur add:", err);
+      
+      if (err.message.includes("401")) {
+        setError("Session expirée. Veuillez vous reconnecter.");
+      } else {
+        setError(err.message || "Impossible d'ajouter au panier");
+      }
+      
+      return false;
+    }
+  };
+
+  // Mettre à jour la quantité
+  const update = async (itemId, quantity) => {
+    if (quantity < 1) return;
+    
+    try {
+      await makeAuthedRequest(`/cart/${itemId}`, {
+        method: "PUT",
+        body: JSON.stringify({ quantity }),
+      });
+
+      // Mettre à jour localement
+      setCart(prev => 
+        prev.map(item => 
+          item.id === itemId ? { ...item, quantity } : item
+        )
+      );
+    } catch (err) {
+      console.error("❌ Erreur update:", err);
+      setError("Impossible de mettre à jour");
+    }
+  };
+
+  // Supprimer un item
+  const remove = async (itemId) => {
+    try {
+      await makeAuthedRequest(`/cart/${itemId}`, {
         method: "DELETE",
       });
+
       setCart(prev => prev.filter(item => item.id !== itemId));
     } catch (err) {
-      setError("Impossible de supprimer le produit");
-    } finally {
-      setLoading(false);
+      console.error("❌ Erreur remove:", err);
+      setError("Impossible de supprimer");
     }
-  }
+  };
+
+  // Vider le panier
+  const clearCart = async () => {
+    try {
+      // Si ton API a un endpoint pour vider le panier
+      await makeAuthedRequest("/cart/clear", { method: "DELETE" });
+      // Ou supprimer un par un
+      setCart([]);
+    } catch (err) {
+      console.error("❌ Erreur clearCart:", err);
+    }
+  };
+
+  // Calculs
+  const getTotal = () => {
+    return cart.reduce((total, item) => {
+      const price = item.product?.price || item.price || 0;
+      return total + (price * item.quantity);
+    }, 0);
+  };
+
+  const getItemCount = () => {
+    return cart.reduce((count, item) => count + item.quantity, 0);
+  };
 
   return (
-    <CartContext.Provider value={{ cart, loading, error, add, update, remove }}>
+    <CartContext.Provider value={{ 
+      cart, 
+      loading, 
+      error, 
+      token,
+      add, 
+      update, 
+      remove, 
+      clearCart,
+      getTotal,
+      getItemCount,
+      refreshCart: fetchCart,
+      setToken: (newToken) => {
+        localStorage.setItem("token", newToken);
+        setToken(newToken);
+      },
+      logout: () => {
+        localStorage.removeItem("token");
+        setToken(null);
+        setCart([]);
+      }
+    }}>
       {children}
     </CartContext.Provider>
   );
 }
 
-// Hook pour utiliser le panier
 export function useCart() {
-  return useContext(CartContext);
+  const context = useContext(CartContext);
+  if (!context) {
+    throw new Error("useCart doit être utilisé dans CartProvider");
+  }
+  return context;
 }

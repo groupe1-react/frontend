@@ -1,8 +1,5 @@
 import { apiFetch } from "./apiFetch";
 
-/**
- * Normalise la réponse de login pour toujours retourner { token, data } ou lever une erreur.
- */
 export async function loginUser(credentials) {
   const res = await apiFetch("/auth/login", {
     method: "POST",
@@ -28,9 +25,7 @@ export async function loginUser(credentials) {
   return { token, data: res };
 }
 
-/**
- * Register : retourne { token?, data }
- */
+
 export async function registerUser(payload) {
   const res = await apiFetch("/auth/register", {
     method: "POST",

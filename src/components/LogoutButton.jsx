@@ -8,7 +8,7 @@ export default function LogoutButton() {
     try {
       await logoutUser();
       localStorage.removeItem("token"); // nettoyer le frontend
-      navigate("/login"); // rediriger vers login
+      navigate("/login"); // redirection vers login
     } catch (err) {
       console.error(err);
       alert("Impossible de se déconnecter.");

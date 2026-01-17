@@ -128,7 +128,7 @@ export default function ProductReviews({ productId }) {
     setTimeout(() => setMessage(""), 3000);
   }
 
-  // Permet de supprimer tous les avis (ex: bouton dev). Utile si tu veux reset.
+  // Permet de supprimer tous les avis
   function clearReviews() {
     setReviews([]);
     try {
@@ -154,7 +154,7 @@ export default function ProductReviews({ productId }) {
         </div>
       </div>
 
-      {/* Formulaire épuré (underline inputs) */}
+      {/* Formulaire des avis */}
       <form onSubmit={handleAddReview} className="mb-6">
         <div className="bg-transparent p-4 rounded">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
@@ -216,7 +216,7 @@ export default function ProductReviews({ productId }) {
         </div>
       </form>
 
-      {/* Liste des avis épurée */}
+      {/* Liste des avis  */}
       <div className="divide-y divide-gray-100 bg-white rounded-md">
         {reviews.length === 0 ? (
           <div className="p-4 text-gray-600">Aucun avis pour le moment. Soyez le premier à en laisser un !</div>
