@@ -226,6 +226,7 @@ export function CartProvider({ children }) {
         setCart([]);
       }
     }}>
+    
       {children}
     </CartContext.Provider>
   );

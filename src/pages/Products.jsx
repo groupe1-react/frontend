@@ -110,6 +110,7 @@ export default function Products() {
 
         if (mounted) setProducts(productsWithImages);
       } catch (err) {
+        
         console.error(err);
         if (mounted) setError(err.message || "Erreur lors de la récupération des produits");
       } finally {
