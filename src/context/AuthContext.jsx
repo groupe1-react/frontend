@@ -26,7 +26,6 @@ export function AuthProvider({ children }) {
   }, [user]);
 
   async function login(credentials) {
-    // credentials = { email, password } ou selon ton API
     const res = await fetch("https://api.react.nos-apps.com/api/groupe-1/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -36,7 +35,6 @@ export function AuthProvider({ children }) {
     if (!res.ok) {
       throw new Error(data?.message || `Login failed (${res.status})`);
     }
-    // attendre que la réponse contienne token (ex: { token, user })
     setToken(data.token);
     setUser(data.user ?? null);
     return data;
@@ -52,7 +50,7 @@ export function AuthProvider({ children }) {
     if (!res.ok) {
       throw new Error(data?.message || `Register failed (${res.status})`);
     }
-    // optionnel : auto-login si la réponse contient token
+    //auto-login si la réponse contient token
     if (data.token) {
       setToken(data.token);
       setUser(data.user ?? null);
@@ -63,7 +61,7 @@ export function AuthProvider({ children }) {
   function logout() {
     setToken(null);
     setUser(null);
-    // optionnel: appeler endpoint /logout
+    // appeler endpoint /logout
   }
 
   return (

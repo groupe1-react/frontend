@@ -34,10 +34,7 @@ export function CartProvider({ children }) {
 
     if (token) {
       headers["Authorization"] = `Bearer ${token}`;
-    }
-
-    console.log("🔐 Requête avec token?", !!token);
-    
+    }    
     return await apiFetch(url, {
       ...options,
       headers,
@@ -47,20 +44,15 @@ export function CartProvider({ children }) {
   // Charger le panier
   const fetchCart = async () => {
     if (!token) {
-      console.log("⚠️ Pas de token, panier vide");
       setCart([]);
       setLoading(false);
       return;
     }
-
-    console.log("🔄 Chargement panier avec token...");
     setLoading(true);
     try {
       const data = await makeAuthedRequest("/cart", {
         method: "GET",
       });
-
-      console.log("📦 Réponse API GET /cart:", data);
 
       // Essayer différentes structures de réponse
       let cartItems = [];
@@ -76,8 +68,6 @@ export function CartProvider({ children }) {
       } else if (data && data.products && Array.isArray(data.products)) {
         cartItems = data.products;
       }
-
-      console.log("🛒 Items extraits:", cartItems.length);
       setCart(cartItems);
       setError("");
 
@@ -85,7 +75,7 @@ export function CartProvider({ children }) {
       console.error("❌ Erreur fetchCart:", err);
       if (err.message.includes("401") || err.message.includes("403")) {
         setError("Session expirée. Veuillez vous reconnecter.");
-        // Optionnel: déconnecter l'utilisateur
+        // déconnecter l'utilisateur
         localStorage.removeItem("token");
         setToken(null);
       } else {
@@ -110,24 +100,14 @@ export function CartProvider({ children }) {
     if (!token) {
       setError("Veuillez vous connecter pour ajouter au panier");
       return false;
-    }
-
-    console.log(`➕ Ajout produit ${product_id}, quantité ${quantity}`);
-    
+    }    
     try {
       // POST pour ajouter
       const result = await makeAuthedRequest("/cart", {
         method: "POST",
         body: JSON.stringify({ product_id, quantity }),
       });
-
-      console.log("✅ Réponse POST:", result);
-
-      // Stratégie: Option 1 - Recharger tout le panier
       await fetchCart();
-
-      // Stratégie: Option 2 - Mettre à jour localement (plus rapide)
-      // Si l'API retourne l'item ajouté
       if (result && result.data) {
         const newItem = result.data;
         setCart(prev => {
@@ -204,9 +184,7 @@ export function CartProvider({ children }) {
   // Vider le panier
   const clearCart = async () => {
     try {
-      // Si ton API a un endpoint pour vider le panier
       await makeAuthedRequest("/cart/clear", { method: "DELETE" });
-      // Ou supprimer un par un
       setCart([]);
     } catch (err) {
       console.error("❌ Erreur clearCart:", err);

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { getProducts } from "../api/products";
-import { createProduct, updateProduct, deleteProduct } from "../api/admin"; // On n'importe plus uploadImage
+import { createProduct, updateProduct, deleteProduct } from "../api/admin";
 import noImage from "/no-image.png";
 
 const API_BASE = "https://api.react.nos-apps.com";

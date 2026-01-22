@@ -86,7 +86,6 @@ export default function ProductDetails() {
         product.file,
       ].filter(Boolean);
 
-      // helper fallback static selon id
       const staticFallback = STATIC_IMAGES[product.id] || "/image/no-image.png";
 
       if (candidates.length === 0) {
@@ -94,7 +93,6 @@ export default function ProductDetails() {
         return;
       }
 
-      // prendre le premier candidat valable
       let candidate = candidates[0];
 
       if (typeof candidate === "object") {
@@ -121,7 +119,6 @@ export default function ProductDetails() {
               if (mounted) setImageUrl(obj);
               return;
             }
-            // si le endpoint renvoie JSON (métadonnées), essayer d'extraire url
             if (ct.includes("application/json")) {
               const json = await res.json().catch(() => null);
               const urlFromJson = json?.url || json?.data?.url || json?.file?.url;
@@ -136,7 +133,6 @@ export default function ProductDetails() {
         } catch (err) {
           console.warn("Erreur fetching image from API path:", err);
         }
-        // si tout échoue, fallback à l'image statique
         if (mounted) setImageUrl(staticFallback);
         return;
       }
@@ -156,7 +152,6 @@ export default function ProductDetails() {
               if (mounted) setImageUrl(obj);
               return;
             }
-            // si JSON avec url
             if (ct.includes("application/json")) {
               const json = await res.json().catch(() => null);
               const urlFromJson = json?.url || json?.data?.url || json?.file?.url;
@@ -171,12 +166,10 @@ export default function ProductDetails() {
         } catch (err) {
           console.warn("Erreur fetching upload/file:", err);
         }
-        // fallback statique
         if (mounted) setImageUrl(staticFallback);
         return;
       }
 
-      // Par défaut fallback
       if (mounted) setImageUrl(staticFallback);
     }
 

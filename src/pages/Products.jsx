@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { getProducts } from "../api/products";
 import { apiFetch } from "../api/apiFetch";
+
 export default function Products() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -24,78 +25,58 @@ export default function Products() {
 
   useEffect(() => {
     let mounted = true;
-    // store object URLs to revoke later (si on fetch des blobs protégés)
     const objectUrls = [];
 
     async function fetchProductsAndFiles() {
       try {
-        const { data } = await getProducts(); // adapte si getProducts renvoie un autre format
+        const { data } = await getProducts(); 
         const productArray = Array.isArray(data) ? data : data?.data ?? [];
-
-        // try to fetch files list from API upload endpoint
         let files = [];
         try {
-          // apiFetch renvoie JSON ; '/upload/files' est l'endpoint donné par le prof
           files = await apiFetch("/upload/files", { method: "GET" });
-          // si files est enveloppé dans data, normaliser :
           if (files?.data) files = files.data;
           if (!Array.isArray(files)) files = [];
         } catch (e) {
-          // si erreur (ex: endpoint protégé ou absent), on passe et on utilisera les images statiques
           console.warn("Impossible de récupérer la liste des fichiers d'upload :", e);
           files = [];
         }
 
-        // Construire des maps utiles : par name et par uuid si fournis par le back
         const filesByName = {};
         const filesByUuid = {};
         files.forEach((f) => {
           if (f.name) filesByName[f.name] = f;
           if (f.uuid) filesByUuid[f.uuid] = f;
-          if (f.id) filesByUuid[f.id] = f; // parfois l'identifiant est 'id'
+          if (f.id) filesByUuid[f.id] = f; 
         });
 
         const productsWithImages = await Promise.all(
           productArray.map(async (product) => {
             let imageUrl = null;
 
-            // 1) Si le produit contient déjà une URL complète, on l'utilise
             if (product.image_url && typeof product.image_url === "string") {
               imageUrl = product.image_url;
             }
-
-            // 2) Si le produit contient un champ "image" qui est le nom du fichier
             if (!imageUrl && product.image) {
               const fileRecord = filesByName[product.image] || filesByUuid[product.image];
               if (fileRecord) {
-                // Prefer fileRecord.url if present
                 if (fileRecord.url) {
                   imageUrl = fileRecord.url;
                 } else if (fileRecord.uuid) {
-                  imageUrl = `/api/upload/file/${fileRecord.uuid}`; // endpoint direct (peut nécessiter auth)
+                  imageUrl = `/api/upload/file/${fileRecord.uuid}`; 
                 } else if (fileRecord.id) {
                   imageUrl = `/api/upload/file/${fileRecord.id}`;
                 }
               } else {
-                // si product.image ressemble à une uuid
                 imageUrl = `/api/upload/file/${product.image}`;
               }
             }
-
-            // 3) Si le produit contient image_uuid explicitement
             if (!imageUrl && product.image_uuid) {
               const fileRecord = filesByUuid[product.image_uuid];
               imageUrl = fileRecord?.url || `/api/upload/file/${product.image_uuid}`;
             }
-
-            // 4) Si l'URL pointe vers une API protégée (ex: /api/upload/file/...), le serveur peut
-            // requérir Authorization : <token>. Dans ce cas, <img src="..."> renverra 401.
-            // Optionnel : récupérer le blob avec fetch + Authorization et créer un objectURL.
             if (imageUrl && imageUrl.startsWith("/api/upload/file")) {
               try {
-                // fetch the image blob with credentials/token if necessary
                 const fullUrl = imageUrl.startsWith("http") ? imageUrl : imageUrl;
-                // apiFetch returns parsed JSON, so use native fetch to get blob and pass token
                 const token = localStorage.getItem("token");
                 const headers = {};
                 if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -111,7 +92,6 @@ export default function Products() {
                   objectUrls.push(objectUrl);
                   imageUrl = objectUrl;
                 } else {
-                  // can't fetch protected image as blob -> fallback to fileRecord.url or static
                   console.warn("Image protégée non accessible en GET direct :", imageUrl, res.status);
                   imageUrl = null;
                 }
@@ -120,8 +100,6 @@ export default function Products() {
                 imageUrl = null;
               }
             }
-
-            // 5) fallback : static imageList or placeholder
             if (!imageUrl) {
               imageUrl = imageList[product.id] || "https://via.placeholder.com/300?text=Image+Indisponible";
             }
@@ -143,10 +121,6 @@ export default function Products() {
 
     return () => {
       mounted = false;
-      // cleanup object URLs
-      // (Note : dans cette fonction on n'a pas accès aux objectUrls array si déclarée plus haut,
-      //  mais si on encre l'array dans une variable d'état on peut revoke ici.
-      //  Pour l'exemple actuel on ne révoque pas pour rester simple.)
     };
   }, []);
 
