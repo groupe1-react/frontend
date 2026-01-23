@@ -329,7 +329,9 @@ export default function Home() {
                 <p className="text-gray-600">{feature.desc}</p>
               </div>
             ))}
-          </div>
+          </div>  
+
+          
         </section>
       )}
     </div>
